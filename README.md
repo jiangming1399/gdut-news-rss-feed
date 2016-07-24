@@ -1,2 +1,2 @@
 ## GDUT News RSS Feed
-นในคะยฮลอจึชอ๘ RSS feed
+ๅนฟๅทฅๆ–ฐ้—ป้€็ฅ็ฝ‘ RSS feed
