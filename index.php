@@ -4,14 +4,13 @@
     <channel>
         <title>校内通知</title>
         <link>https://www.bigkeer.cn</link>
-        <description>广工校内通知</description>
         <language>zh-cn</language>
         <generator><![CDATA[]]></generator>
         <webmaster>admin@bigkeer.cn</webmaster>
 <?PHP
     define("CACHE_TIME",600);
     //获取上一次通知的缓存
-    $configFile = fopen("config.txt","r");
+    $configFile = fopen(sys_get_temp_dir()."/config.txt","r");
     
     if($configFile){
         $lastCache = fgets($configFile);
@@ -22,38 +21,39 @@
     
     //判断缓存是否有效
     if( time() - CACHE_TIME < $lastCache){
-        $cacheFile = fopen("cache.txt","r");
-        printRss(fread($cacheFile,filesize("cache.txt")));
+        $cacheFile = fopen(sys_get_temp_dir()."/cache.txt","r");
+        echo '<description>Last update: '.date('r',$lastCache).'</description>';
+        printRss(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")));
         fclose($cacheFile);
-        return;
     }
-    //获取全部通知
-    $getResult = curl_get("http://news.gdut.edu.cn/ArticleList.aspx?category=4");
-
-    //判断SESSION是否有效
-    if(strripos($getResult[0]["url"], "UserLogin.aspx")>0){
-        //正则匹配隐藏字段
-        preg_match_all('<input type="hidden" name="([A-Z_]*)" ["a-zA-Z0-9_= ]* value="([a-zA-Z0-9/+=]*)" />', $getResult[1],$params);
-        //构建POST参数
-        $postArgs = array('ctl00$ContentPlaceHolder1$userEmail' => 'gdutnews', 'ctl00$ContentPlaceHolder1$userPassWord' => 'newsgdut', 'ctl00$ContentPlaceHolder1$CheckBox1' => 'on', 'ctl00$ContentPlaceHolder1$Button1' => '登录', $params[1][0] => $params[2][0], $params[1][1] => $params[2][1]);
-        //重新获取SESSION
-        $getResult = curl_get("http://news.gdut.edu.cn/UserLogin.aspx",$postArgs);
-
-        //重新获取页面内容
+    else {
+        //获取全部通知
         $getResult = curl_get("http://news.gdut.edu.cn/ArticleList.aspx?category=4");
-    }
-    printRss($getResult[1]);
-    
-    $lastCache = time();
-    $configFile = fopen("config.txt","w");
-    fwrite($configFile, $lastCache);
-    fclose($configFile);
-    
-    $cacheFile = fopen("cache.txt","w");
-    fwrite($cacheFile, $getResult[1]);
-    fclose($cacheFile);
-    
-    
+
+        //判断SESSION是否有效
+        if(strripos($getResult[0]["url"], "UserLogin.aspx")>0){
+            //正则匹配隐藏字段
+            preg_match_all('<input type="hidden" name="([A-Z_]*)" ["a-zA-Z0-9_= ]* value="([a-zA-Z0-9/+=]*)" />', $getResult[1],$params);
+            //构建POST参数
+            $postArgs = array('ctl00$ContentPlaceHolder1$userEmail' => 'gdutnews', 'ctl00$ContentPlaceHolder1$userPassWord' => 'newsgdut', 'ctl00$ContentPlaceHolder1$CheckBox1' => 'on', 'ctl00$ContentPlaceHolder1$Button1' => '登录', $params[1][0] => $params[2][0], $params[1][1] => $params[2][1]);
+            //重新获取SESSION
+            $getResult = curl_get("http://news.gdut.edu.cn/UserLogin.aspx",$postArgs);
+
+            //重新获取页面内容
+            $getResult = curl_get("http://news.gdut.edu.cn/ArticleList.aspx?category=4");
+        }
+        echo '<description>Last update: '.date('r',time()).'</description>';
+        printRss($getResult[1]);
+        
+        $lastCache = time();
+        $configFile = fopen(sys_get_temp_dir()."/config.txt","w");
+        fwrite($configFile, $lastCache);
+        fclose($configFile);
+        
+        $cacheFile = fopen(sys_get_temp_dir()."/cache.txt","w");
+        fwrite($cacheFile, $getResult[1]);
+        fclose($cacheFile);
+    } 
     
 function printRss($content){
     //正则表达式匹配
