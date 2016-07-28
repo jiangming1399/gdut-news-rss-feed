@@ -61,7 +61,7 @@ function printRss($content){
     foreach($out as $item){
         echo '<item>';
         echo "<title><![CDATA[$item[2]]]></title>";
-        echo "<link>http://news.gdut.edu.cn$item[1]</link>";
+        echo "<link>http://mail.bigkeer.cn/rss/jump.php?url=".urlencode("http://news.gdut.edu.cn$item[1]")."</link>";
         echo "<description></description>";
         preg_match('#([0-9]*)/([0-9]*)/([0-9]*)#', $item[4], $date);
         echo '<pubDate>'.date('r',mktime(0,0,0,$date[2],$date[3],$date[1])).'</pubDate>';
