@@ -12,6 +12,9 @@
     //获取上一次通知的缓存
     $configFile = fopen(sys_get_temp_dir()."/config.txt","r");
     
+    if(isset($_GET['flush']))$flush=true;
+    else $flush=false;
+    
     if($configFile){
         $lastCache = fgets($configFile);
         fclose($configFile);
@@ -20,7 +23,7 @@
     }
     
     //判断缓存是否有效
-    if( time() - CACHE_TIME < $lastCache){
+    if( (time() - CACHE_TIME < $lastCache)&&(!$flush) ){
         $cacheFile = fopen(sys_get_temp_dir()."/cache.txt","r");
         echo '<description>Last update: '.date('r',$lastCache).'</description>';
         printRss(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")));
