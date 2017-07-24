@@ -1,5 +1,7 @@
 <?PHP header("Content-type: text/xml; charset=utf-8"); ?>
-<?xml version="1.0" encoding="utf-8" ?>
+<?PHP
+echo '<?xml version="1.0" encoding="utf-8" ?>';
+?>
 <rss version="2.0">
     <channel>
         <title>校内通知</title>
@@ -26,7 +28,7 @@
     if( (time() - CACHE_TIME < $lastCache)&&(!$flush) ){
         $cacheFile = fopen(sys_get_temp_dir()."/cache.txt","r");
         echo '<description>Last update: '.date('r',$lastCache).'</description>';
-        printRss(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")));
+        printRss(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")),$flush);
         fclose($cacheFile);
     }
     else {
@@ -46,7 +48,7 @@
             $getResult = curl_get("http://news.gdut.edu.cn/ArticleList.aspx?category=4");
         }
         echo '<description>Last update: '.date('r',time()).'</description>';
-        printRss($getResult[1]);
+        printRss($getResult[1],$flush);
         
         $lastCache = time();
         $configFile = fopen(sys_get_temp_dir()."/config.txt","w");
@@ -58,23 +60,55 @@
         fclose($cacheFile);
     } 
     
-function printRss($content){
+function printRss($content,$forceReflush){
     //正则表达式匹配
     preg_match_all('#<p[ a-z="]*>\s*<a href=".([/a-z?=0-9\.]*)"\s*title="(.*)">\s*.*\s*<span title="(.*)">.*<span>(.*)</span>#', $content, $out, PREG_SET_ORDER);
     foreach($out as $item){
-        echo '<item>';
-        echo "<title><![CDATA[$item[2]]]></title>";
-        echo "<link>http://mail.bigkeer.cn/rss/jump.php?url=".urlencode("http://news.gdut.edu.cn$item[1]")."</link>";
-        echo "<description></description>";
-        preg_match('#([0-9]*)/([0-9]*)/([0-9]*)#', $item[4], $date);
-        echo '<pubDate>'.date('r',mktime(0,0,0,$date[2],$date[3],$date[1])).'</pubDate>';
-        echo "<category>校内通知</category>";
-        echo "<author>$item[3]</author>";
-        echo "<comments>我们大科二</comments>";
-        echo "</item>";
+        $id = explode("=",$item[1])[1];
+        $pageCacheFileName = sys_get_temp_dir()."/$id.txt";
+        if(file_exists($pageCacheFileName) && !$forceReflush)
+        {
+            $hCache = fopen($pageCacheFileName,"r");
+            $cache = fgets($hCache);
+            fclose($hCache);
+            
+            $cacheData = json_decode($cache, true);
+            $publishDate = $cacheData['time'];
+            $content = $cacheData['content'];
+            
+            PrintOutRssItem($item[2],"http://news.gdut.edu.cn$item[1]",$content,date_create($publishDate),$item[3]);
+        }
+        else
+        {
+            $getResult = curl_get("http://news.gdut.edu.cn$item[1]");
+            preg_match('#<div.*id="articleBody".*>([\s\S]*?)</div>\s*<div.*class="articleinfos".*>([\s\S]*?)</div>#', $getResult[1], $subItem);
+            preg_match('#\[发布日期:(.*?)\]#', $subItem[2], $time);
+            $publishDate = $time[1];
+            $content = $subItem[1];
+            $jsonData = array("time" => $publishDate, "content" => $content);
+            
+            $hCache = fopen($pageCacheFileName,"w");
+            $cache = fwrite($hCache, json_encode($jsonData));
+            fclose($hCache);
+            
+            PrintOutRssItem($item[2],"http://news.gdut.edu.cn$item[1]",$content,date_create($publishDate),$item[3]);
+            
+        }
     }
 }    
 
+function PrintOutRssItem($title, $url, $desc, $pubDate, $author)
+{
+    echo '<item>';
+    echo "    <title><![CDATA[$title]]></title>";
+    echo "    <link>http://mail.bigkeer.cn/rss/jump.php?url=".urlencode($url)."</link>";
+    echo "    <description><![CDATA[$desc]]></description>";
+    echo '    <pubDate>'.date_format($pubDate, "Y-m-d H:i:s").'</pubDate>';
+    echo "    <category>校内通知</category>";
+    echo "    <author>$author</author>";
+    echo "    <comments>我们大科二</comments>";
+    echo "</item>";
+}
 
 function curl_get($url, $postData=''){
     $ch = curl_init($url);
