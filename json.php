@@ -84,7 +84,7 @@ function printRss($content,$count){
             $content = $cacheData['content'];
             
             $jsonItem = Array('title' =>  $item[2],
-                    'url' => "https://mail.bigkeer.cn/rss/page.php?id=$id"),
+                    'url' => "https://mail.bigkeer.cn/rss/page.php?id=$id",
                     'author' =>  $item[3],
                     'date' => date_format(date_create($publishDate), "Y-m-d H:i:s"));
             $jsonOrg[] = $jsonItem;
