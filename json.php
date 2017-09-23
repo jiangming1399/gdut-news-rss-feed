@@ -82,12 +82,6 @@ function printRss($content,$count){
             $cacheData = json_decode($cache, true);
             $publishDate = $cacheData['time'];
             $content = $cacheData['content'];
-            
-            $jsonItem = Array('title' =>  $item[2],
-                    'url' => "https://mail.bigkeer.cn/rss/page.php?id=$id",
-                    'author' =>  $item[3],
-                    'date' => date_format(date_create($publishDate), "Y-m-d H:i:s"));
-            $jsonOrg[] = $jsonItem;
         }
         else
         {
@@ -101,13 +95,14 @@ function printRss($content,$count){
             $hCache = fopen($pageCacheFileName,"w");
             $cache = fwrite($hCache, json_encode($jsonData));
             fclose($hCache);
-            
-            $jsonItem = Array('title' =>  $item[2],
-                    'url' => "https://mail.bigkeer.cn/rss/jump.php?url=".urlencode("http://news.gdut.edu.cn$item[1]"),
-                    'author' =>  $item[3],
-                    'date' => date_format(date_create($publishDate), "Y-m-d H:i:s"));
-            $jsonOrg[] = $jsonItem;
         }
+                    
+        $jsonItem = Array('title' =>  $item[2],
+                'url' => "https://mail.bigkeer.cn/rss/page.php?id=$id",
+                'author' =>  $item[3],
+                'date' => date_format(date_create($publishDate), "Y-m-d H:i:s"));
+        $jsonOrg[] = $jsonItem;
+        
         if($i >= $count) break;
     }
     echo json_encode($jsonOrg);
