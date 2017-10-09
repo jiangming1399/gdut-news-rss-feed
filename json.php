@@ -1,6 +1,9 @@
 <?PHP 
 header("Access-Control-Allow-Origin: *");
 define("CACHE_TIME",600);
+//define("BASEURL","http://222.200.98.32");
+define("BASEURL","http://news.gdut.edu.cn");
+
 //获取上一次通知的缓存
 $configFile = fopen(sys_get_temp_dir()."/config.txt","r");
 
@@ -18,15 +21,17 @@ if($configFile){
 }
 
 //判断缓存是否有效
-if( (time() - CACHE_TIME < $lastCache)&&(!$flush) ){
+if( (time() - CACHE_TIME < $lastCache)&&(!$flush) )
+{
     $cacheFile = fopen(sys_get_temp_dir()."/cache.txt","r");
     //echo '<description>Last update: '.date('r',$lastCache).'</description>';
-    printRss(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")),$count);
+    echo json_encode(Array("status" => 200, "data" => parseContent(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")),$count)));
     fclose($cacheFile);
 }
-else {
+else 
+{
     //获取全部通知
-    $getResult = curl_get("http://news.gdut.edu.cn/ArticleList.aspx?category=4");
+    $getResult = curl_get(BASEURL."/ArticleList.aspx?category=4");
 
     //判断SESSION是否有效
     if(strripos($getResult[0]["url"], "UserLogin.aspx")>0){
@@ -35,14 +40,16 @@ else {
         //构建POST参数
         $postArgs = array('ctl00$ContentPlaceHolder1$userEmail' => 'gdutnews', 'ctl00$ContentPlaceHolder1$userPassWord' => 'newsgdut', 'ctl00$ContentPlaceHolder1$CheckBox1' => 'on', 'ctl00$ContentPlaceHolder1$Button1' => '登录', $params[1][0] => $params[2][0], $params[1][1] => $params[2][1]);
         //重新获取SESSION
-        $getResult = curl_get("http://news.gdut.edu.cn/UserLogin.aspx",$postArgs);
+        $getResult = curl_get(BASEURL."/UserLogin.aspx",$postArgs);
 
         //重新获取页面内容
-        $getResult = curl_get("http://news.gdut.edu.cn/ArticleList.aspx?category=4");
+        $getResult = curl_get(BASEURL."/ArticleList.aspx?category=4");
     }
-    //echo '<description>Last update: '.date('r',time()).'</description>';
-    if($getResult[1] != null) {
-        printRss($getResult[1],$count);
+    $jsonData = Array();
+
+    if($getResult[0]["http_code"] == 200)
+    {
+        $jsonData = Array("status" => 200, "data" => parseContent($getResult[1], $count));
     
         $lastCache = time();
         $configFile = fopen(sys_get_temp_dir()."/config.txt","w");
@@ -52,23 +59,23 @@ else {
         $cacheFile = fopen(sys_get_temp_dir()."/cache.txt","w");
         fwrite($cacheFile, $getResult[1]);
         fclose($cacheFile);
-    } 
-    
+    }
     else 
     {
         $cacheFile = fopen(sys_get_temp_dir()."/cache.txt","r");
-        //echo '<description>Last update: '.date('r',$lastCache).'</description>';
-        printRss(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")),$count);
+        $jsonData = Array("status" => -1, "msg" => '无法连接到校内新闻网，此为 '.date('m-d H:i',$lastCache).' 的数据', "data" => parseContent(fread($cacheFile,filesize(sys_get_temp_dir()."/cache.txt")),$count));
         fclose($cacheFile);
     }
+    echo json_encode($jsonData);
 }
 
-function printRss($content,$count){   
+function parseContent($content,$count){   
     $jsonOrg = Array();
     $i=0;  
     //正则表达式匹配
     preg_match_all('#<p[ a-z="]*>\s*<a href=".([/a-z?=0-9\.]*)"\s*title="(.*)">\s*.*\s*<span title="(.*)">.*<span>(.*)</span>#', $content, $out, PREG_SET_ORDER);
-    foreach($out as $item){
+    foreach($out as $item)
+    {
         $i++;
         
         $id = explode("=",$item[1])[1];
@@ -85,16 +92,20 @@ function printRss($content,$count){
         }
         else
         {
-            $getResult = curl_get("http://news.gdut.edu.cn$item[1]");
-            preg_match('#<div.*id="articleBody".*>([\s\S]*?)</div>\s*<div.*class="articleinfos".*>([\s\S]*?)</div>#', $getResult[1], $subItem);
-            preg_match('#\[发布日期:(.*?)\]#', $subItem[2], $time);
-            $publishDate = $time[1];
-            $content = $subItem[1];
-            $jsonData = array("time" => $publishDate, "content" => $content);
+            $getResult = curl_get(BASEURL."$item[1]");
             
-            $hCache = fopen($pageCacheFileName,"w");
-            $cache = fwrite($hCache, json_encode($jsonData));
-            fclose($hCache);
+            if($getResult[1] != null)
+            {
+                preg_match('#<div.*id="articleBody".*>([\s\S]*?)</div>\s*<div.*class="articleinfos".*>([\s\S]*?)</div>#', $getResult[1], $subItem);
+                preg_match('#\[发布日期:(.*?)\]#', $subItem[2], $time);
+                $publishDate = $time[1];
+                $content = $subItem[1];
+                $jsonData = array("time" => $publishDate, "content" => $content);
+                
+                $hCache = fopen($pageCacheFileName,"w");
+                $cache = fwrite($hCache, json_encode($jsonData));
+                fclose($hCache);
+            }
         }
                     
         $jsonItem = Array('title' =>  $item[2],
@@ -105,7 +116,7 @@ function printRss($content,$count){
         
         if($i >= $count) break;
     }
-    echo json_encode($jsonOrg);
+    return $jsonOrg;
 }    
 
 function curl_get($url, $postData=''){
@@ -115,6 +126,8 @@ function curl_get($url, $postData=''){
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1); 
     curl_setopt($ch, CURLOPT_COOKIEJAR, 'cookie.txt');
     curl_setopt($ch, CURLOPT_COOKIEFILE, 'cookie.txt');
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    
     if (is_array($postData)) {
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
